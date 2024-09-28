@@ -21,8 +21,10 @@
 //#undef RAYGUI_IMPLEMENTATION     // raygui.h
 
 const float GRAVITY = 20.0f;
+
 float timeToNextObstacle = 0.1f;
 float nextObstacleCounter = 0.0f;
+bool showInfo = false;
 
 /**
  * @brief Creates a dinamically allocated GameWorld struct instance.
@@ -70,31 +72,11 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
     }
 
     if ( IsMouseButtonDown( MOUSE_BUTTON_RIGHT ) ) {
+        createObstacleGameWorld( gw, delta, GetMousePosition() );
+    }
 
-        nextObstacleCounter += delta;
-
-        if ( nextObstacleCounter >= timeToNextObstacle ) {
-
-            nextObstacleCounter = 0;
-
-            int pos = gw->newObstaclePos % gw->maxObstacles;
-
-            gw->obstacles[pos] = createObstacle( 
-                GetMousePosition(), 
-                (Vector2) {
-                    20.0f, 20.0f
-                },
-                RAYWHITE
-            );
-
-            gw->newObstaclePos++;
-            
-            if ( gw->obstacleQuantity < gw->maxObstacles ) {
-                gw->obstacleQuantity++;
-            }
-
-        }
-
+    if ( IsKeyPressed( KEY_F1 ) ) {
+        showInfo = !showInfo;
     }
 
     resolveParticlesObstaclesCollision( gw );
@@ -114,12 +96,42 @@ void drawGameWorld( GameWorld *gw ) {
     for ( int i = 0; i < gw->obstacleQuantity; i++ ) {
         drawObstacle( &gw->obstacles[i] );
     }
-
-    DrawFPS( 20, 20 );
-    DrawText( TextFormat( "particles: %d", gw->pe.particleQuantity ), 20, 50, 20, WHITE );
-    DrawText( TextFormat( "obstacles: %d", gw->obstacleQuantity ), 20, 70, 20, WHITE );
+    
+    if ( showInfo ) {
+        DrawFPS( 20, 20 );
+        DrawText( TextFormat( "particles: %d", gw->pe.particleQuantity ), 20, 40, 20, WHITE );
+        DrawText( TextFormat( "obstacles: %d", gw->obstacleQuantity ), 20, 60, 20, WHITE );
+    }
 
     EndDrawing();
+
+}
+
+void createObstacleGameWorld( GameWorld *gw, float delta, Vector2 pos ) {
+
+    nextObstacleCounter += delta;
+
+    if ( nextObstacleCounter >= timeToNextObstacle ) {
+
+        nextObstacleCounter = 0;
+
+        int k = gw->newObstaclePos % gw->maxObstacles;
+
+        gw->obstacles[k] = createObstacle( 
+            pos, 
+            (Vector2) {
+                20.0f, 20.0f
+            },
+            RAYWHITE
+        );
+
+        gw->newObstaclePos++;
+        
+        if ( gw->obstacleQuantity < gw->maxObstacles ) {
+            gw->obstacleQuantity++;
+        }
+
+    }
 
 }
 

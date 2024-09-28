@@ -44,4 +44,5 @@ void inputAndUpdateGameWorld( GameWorld *gw );
  */
 void drawGameWorld( GameWorld *gw );
 
+void createObstacleGameWorld( GameWorld *gw, float delta, Vector2 pos );
 void resolveParticlesObstaclesCollision( GameWorld *gw );

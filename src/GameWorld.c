@@ -10,15 +10,15 @@
 #include <math.h>
 
 #include "GameWorld.h"
+#include "ParticleEmitter.h"
 #include "ResourceManager.h"
+#include "utils.h"
 
 #include "raylib/raylib.h"
 #include "raylib/raymath.h"
 //#define RAYGUI_IMPLEMENTATION    // to use raygui, comment these three lines.
 //#include "raylib/raygui.h"       // other compilation units must only include
 //#undef RAYGUI_IMPLEMENTATION     // raygui.h
-
-#define min( x, y ) (x) < (y) ? x : y;
 
 const float GRAVITY = 20.0f;
 float timeToNextObstacle = 0.1f;
@@ -31,17 +31,16 @@ GameWorld* createGameWorld( void ) {
 
     GameWorld *gw = (GameWorld*) malloc( sizeof( GameWorld ) );
 
-    gw->emitterPos = (Vector2) { 40.0f, 40.0f };
-    gw->emitterVel = (Vector2) { 150.0f, 100.0f };
-    gw->emitterAngle = 0.0f;
-    gw->emitterAngleVel = 200.0f;
+    gw->pe = createParticleEmitter( 
+        (Vector2) { 40.0f, 40.0f },
+        (Vector2) { 150.0f, 100.0f },
+        200.0f,
+        4000
+    );
 
-    gw->particleQuantity = 0;
-    gw->maxParticles = 2000;
-    gw->particles = (Particle*) malloc( gw->maxParticles * sizeof( Particle ) );
-
+    gw->newObstaclePos = 0;
     gw->obstacleQuantity = 0;
-    gw->maxObstacles = 200;
+    gw->maxObstacles = 400;
     gw->obstacles = (Obstacle*) malloc( gw->maxObstacles * sizeof( Obstacle ) );
 
     return gw;
@@ -52,7 +51,7 @@ GameWorld* createGameWorld( void ) {
  * @brief Destroys a GameWindow object and its dependecies.
  */
 void destroyGameWorld( GameWorld *gw ) {
-    free( gw->particles );
+    destroyParticleEmitter( &gw->pe );
     free( gw );
 }
 
@@ -63,23 +62,11 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
 
     float delta = GetFrameTime();
 
-    gw->emitterPos.x += gw->emitterVel.x * delta;
-    gw->emitterPos.y += gw->emitterVel.y * sin( DEG2RAD * gw->emitterAngle ) * delta;
-    gw->emitterAngle += gw->emitterAngleVel * delta;
-    if ( gw->emitterAngle > 360.0f ) {
-        gw->emitterAngle = 0.0f;
-    }
-
-    if ( gw->emitterPos.x < 40.0f ) {
-        gw->emitterVel.x *= -1.0f;
-    } else if ( gw->emitterPos.x >= GetScreenWidth() - 40.0f ) {
-        gw->emitterVel.x *= -1.0f;
-    }
-
-    emittParticle( gw, gw->emitterPos, 5, 180.0f, 285.0f );
+    updateParticleEmitter( &gw->pe, delta );
+    emitParticlesColorInterval( &gw->pe, 5, 180.0f, 285.0f );
 
     if ( IsMouseButtonDown( MOUSE_BUTTON_LEFT ) ) {
-        emittParticle( gw, GetMousePosition(), 5, 0.0f, 60.0f );
+        emitParticlesPositionColorInterval( &gw->pe, GetMousePosition(), 5, 0.0f, 60.0f );
     }
 
     if ( IsMouseButtonDown( MOUSE_BUTTON_RIGHT ) ) {
@@ -90,7 +77,7 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
 
             nextObstacleCounter = 0;
 
-            int pos = gw->obstacleQuantity % gw->maxObstacles;
+            int pos = gw->newObstaclePos % gw->maxObstacles;
 
             gw->obstacles[pos] = createObstacle( 
                 GetMousePosition(), 
@@ -100,15 +87,14 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
                 RAYWHITE
             );
 
-            gw->obstacleQuantity++;
+            gw->newObstaclePos++;
+            
+            if ( gw->obstacleQuantity < gw->maxObstacles ) {
+                gw->obstacleQuantity++;
+            }
 
         }
 
-    }
-
-    int q = min( gw->particleQuantity, gw->maxParticles );
-    for ( int i = 0; i < q; i++ ) {
-        updateParticle( &gw->particles[i], delta );
     }
 
     resolveParticlesObstaclesCollision( gw );
@@ -123,52 +109,30 @@ void drawGameWorld( GameWorld *gw ) {
     BeginDrawing();
     ClearBackground( BLACK );
 
-    int q = min( gw->particleQuantity, gw->maxParticles );
-    for ( int i = 0; i < q; i++ ) {
-        drawParticle( &gw->particles[i] );
-    }
+    drawParticleEmitter( &gw->pe );
 
-    q = min( gw->obstacleQuantity, gw->maxObstacles );
-    for ( int i = 0; i < q; i++ ) {
+    for ( int i = 0; i < gw->obstacleQuantity; i++ ) {
         drawObstacle( &gw->obstacles[i] );
     }
+
+    DrawFPS( 20, 20 );
+    DrawText( TextFormat( "particles: %d", gw->pe.particleQuantity ), 20, 50, 20, WHITE );
+    DrawText( TextFormat( "obstacles: %d", gw->obstacleQuantity ), 20, 70, 20, WHITE );
 
     EndDrawing();
 
 }
 
-void emittParticle( GameWorld *gw, Vector2 pos, int quantity, float startHue, float endHue ) {
-
-    for ( int i = 0; i < quantity; i++ ) {
-
-        int k = gw->particleQuantity % gw->maxParticles;
-        float mult = GetRandomValue( 0, 1 ) == 0 ? 1.0f : -1.0f;
-
-        gw->particles[k] = createParticle( 
-            pos, 
-            (Vector2) {
-                GetRandomValue( 0, 150 ) * mult,
-                50.0f
-            },
-            GetRandomValue( 2, 6 ),
-            200.0f * mult, 
-            ColorFromHSV( Lerp( startHue, endHue, gw->emitterAngle / 360.0f ), 1.0f, 1.0f )
-        );
-
-        gw->particleQuantity++;
-
-    }
-
-}
-
 void resolveParticlesObstaclesCollision( GameWorld *gw ) {
 
-    int pq = min( gw->particleQuantity, gw->maxParticles );
-    int oq = min( gw->obstacleQuantity, gw->maxObstacles );
+    ParticleEmitter *pe = &gw->pe;
+    Particle *particles = pe->particles;
 
-    for ( int i = 0; i < pq; i++ ) {
-        Particle *p = &gw->particles[i];
-        for ( int j = 0; j < oq; j++ ) {
+    for ( int i = 0; i < pe->particleQuantity; i++ ) {
+
+        Particle *p = &particles[i];
+
+        for ( int j = 0; j < gw->obstacleQuantity; j++ ) {
             Obstacle *o = &gw->obstacles[j];
             if ( CheckCollisionCircleRec( p->pos, p->radius, o->topCP ) ) {
                 p->vel.y = -200.f;
@@ -182,6 +146,7 @@ void resolveParticlesObstaclesCollision( GameWorld *gw ) {
                 p->vel.x = fabs( p->vel.x );
             }
         }
+
     }
 
 }

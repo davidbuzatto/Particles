@@ -7,5 +7,8 @@
  */
 #pragma once
 
+#define min( x, y ) (x) < (y) ? x : y;
+#define max( x, y ) (x) > (y) ? x : y;
+
 double toRadians( double degrees );
 double toDegrees( double radians );

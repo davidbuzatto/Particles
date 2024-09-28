@@ -8,21 +8,16 @@
 #pragma once
 
 #include "Particle.h"
+#include "ParticleEmitter.h"
 #include "Obstacle.h"
 
 extern const float GRAVITY;
 
 typedef struct GameWorld {
 
-    Vector2 emitterPos;
-    Vector2 emitterVel;
-    float emitterAngle;
-    float emitterAngleVel;
+    ParticleEmitter pe;
 
-    int particleQuantity;
-    int maxParticles;
-    Particle *particles;
-
+    int newObstaclePos;
     int obstacleQuantity;
     int maxObstacles;
     Obstacle *obstacles;
@@ -49,5 +44,4 @@ void inputAndUpdateGameWorld( GameWorld *gw );
  */
 void drawGameWorld( GameWorld *gw );
 
-void emittParticle( GameWorld *gw, Vector2 pos, int quantity, float startHue, float endHue );
 void resolveParticlesObstaclesCollision( GameWorld *gw );

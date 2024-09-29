@@ -2,7 +2,7 @@
 #include "GameWorld.h"
 #include "raylib/raylib.h"
 
-Particle createParticle( Vector2 pos, Vector2 vel, float radius, float angleVel, Color color ) {
+Particle createParticle( Vector2 pos, Vector2 vel, float radius, Color color ) {
 
     return (Particle){
         .pos = pos,
@@ -17,11 +17,6 @@ void updateParticle( Particle *particle, float delta ) {
 
     particle->pos.x += particle->vel.x * delta;
     particle->pos.y += particle->vel.y * delta;
-
-    /*if ( particle->pos.y + particle->radius >= GetScreenHeight() ) {
-        particle->pos.y = GetScreenHeight() - particle->radius;
-        particle->vel.y = -200.f;
-    }*/
 
     particle->vel.y += GRAVITY;
 

@@ -35,7 +35,7 @@ void drawParticleEmitter( ParticleEmitter *pe ) {
 
 }
 
-void updateParticleEmitter( ParticleEmitter *pe, float delta ) {
+void updateParticleEmitterMoveSin( ParticleEmitter *pe, float delta ) {
 
     pe->pos.x += pe->vel.x * delta;
     pe->pos.y += pe->vel.y * sin( DEG2RAD * pe->angle ) * delta;
@@ -57,19 +57,27 @@ void updateParticleEmitter( ParticleEmitter *pe, float delta ) {
 
 }
 
-void emitParticle( ParticleEmitter *pe, Vector2 pos, Color color ) {
+void updateParticleEmitterStaticRight( ParticleEmitter *pe, float delta ) {
+
+    pe->angle += pe->angleVel * delta;
+    if ( pe->angle > 360.0f ) {
+        pe->angle = 0.0f;
+    }
+
+    for ( int i = 0; i < pe->particleQuantity; i++ ) {
+        updateParticle( &pe->particles[i], delta );
+    }
+
+}
+
+void emitParticle( ParticleEmitter *pe, Vector2 pos, Vector2 vel, float radius, Color color ) {
 
     int k = pe->newParticlePos % pe->maxParticles;
-    float mult = GetRandomValue( 0, 1 ) == 0 ? 1.0f : -1.0f;
 
     pe->particles[k] = createParticle( 
         pos, 
-        (Vector2) {
-            GetRandomValue( 0, 150 ) * mult,
-            50.0f
-        },
-        GetRandomValue( 2, 6 ),
-        200.0f * mult, 
+        vel,
+        radius,
         color
     );
 
@@ -81,14 +89,64 @@ void emitParticle( ParticleEmitter *pe, Vector2 pos, Color color ) {
 
 }
 
-void emitParticlesColorInterval( ParticleEmitter *pe, int quantity, float startHue, float endHue ) {
-    emitParticlesPositionColorInterval( pe, pe->pos, quantity, startHue, endHue );
+void emitParticleColorInterval( ParticleEmitter *pe, Vector2 vel, int minRadius, int maxRadius, float startHue, float endHue ) {
+    emitParticlePositionColorInterval( pe, pe->pos, vel, minRadius, maxRadius, startHue, endHue );
 }
 
-void emitParticlesPositionColorInterval( ParticleEmitter *pe, Vector2 pos, int quantity, float startHue, float endHue ) {
+void emitParticlePositionColorInterval( ParticleEmitter *pe, Vector2 pos, Vector2 vel, int minRadius, int maxRadius, float startHue, float endHue ) {
+    emitParticle( 
+        pe, 
+        pos, 
+        vel, 
+        (float) GetRandomValue( minRadius, maxRadius ),
+        ColorFromHSV( 
+            Lerp( startHue, endHue, pe->angle / 360.0f ), 
+            1.0f, 
+            1.0f
+        )
+    );
+}
+
+void emitParticleColorIntervalQuantity( 
+    ParticleEmitter *pe, 
+    int minVelX, int maxVelX, 
+    int minVelY, int maxVelY, 
+    bool randomSignX, bool randomSignY,
+    int minRadius, int maxRadius, 
+    float startHue, float endHue, 
+    int quantity ) {
+    
     for ( int i = 0; i < quantity; i++ ) {
-        emitParticle( pe, pos, ColorFromHSV( Lerp( startHue, endHue, pe->angle / 360.0f ), 1.0f, 1.0f ) );
+        emitParticleColorInterval( 
+            pe, 
+            createVel( (float) GetRandomValue( minVelX, maxVelX ), (float) GetRandomValue( minVelX, maxVelX ), randomSignX, randomSignY ),
+            minRadius, maxRadius,
+            startHue, endHue
+        );
     }
+    
+}
+
+void emitParticlePositionColorIntervalQuantity( 
+    ParticleEmitter *pe, 
+    Vector2 pos,
+    int minVelX, int maxVelX, 
+    int minVelY, int maxVelY, 
+    bool randomSignX, bool randomSignY,
+    int minRadius, int maxRadius, 
+    float startHue, float endHue, 
+    int quantity ) {
+    
+    for ( int i = 0; i < quantity; i++ ) {
+        emitParticlePositionColorInterval( 
+            pe, 
+            pos,
+            createVel( (float) GetRandomValue( minVelX, maxVelX ), (float) GetRandomValue( minVelX, maxVelX ), randomSignX, randomSignY ),
+            minRadius, maxRadius,
+            startHue, endHue
+        );
+    }
+
 }
 
 

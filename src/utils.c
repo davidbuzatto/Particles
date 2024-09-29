@@ -19,3 +19,15 @@ double toRadians( double degrees ) {
 double toDegrees( double radians ) {
     return radians * 180.0 / PI;
 }
+
+Vector2 createVel( float velX, float velY, bool randomSignX, bool randomSignY ) {
+    
+    float multX = randomSignX ? ( GetRandomValue( 0, 1 ) == 0 ? 1.0 : -1.0 ) : 1.0;
+    float multY = randomSignY ? ( GetRandomValue( 0, 1 ) == 0 ? 1.0 : -1.0 ) : 1.0;
+
+    return (Vector2) {
+        velX * multX,
+        velY * multY
+    };
+
+}

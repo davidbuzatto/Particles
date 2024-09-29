@@ -19,8 +19,26 @@ typedef struct ParticleEmitter {
 
 ParticleEmitter createParticleEmitter( Vector2 pos, Vector2 vel, float angleVel, int maxParticles );
 void destroyParticleEmitter( ParticleEmitter *pe );
-void updateParticleEmitter( ParticleEmitter *pe, float delta );
+void updateParticleEmitterMoveSin( ParticleEmitter *pe, float delta );
+void updateParticleEmitterStaticRight( ParticleEmitter *pe, float delta );
 void drawParticleEmitter( ParticleEmitter *pe );
-void emitParticle( ParticleEmitter *pe, Vector2 pos, Color color );
-void emitParticlesColorInterval( ParticleEmitter *pe, int quantity, float startHue, float endHue );
-void emitParticlesPositionColorInterval( ParticleEmitter *pe, Vector2 pos, int quantity, float startHue, float endHue );
+void emitParticle( ParticleEmitter *pe, Vector2 pos, Vector2 vel, float radius, Color color );
+void emitParticleColorInterval( ParticleEmitter *pe, Vector2 vel, int minRadius, int maxRadius, float startHue, float endHue );
+void emitParticlePositionColorInterval( ParticleEmitter *pe, Vector2 pos, Vector2 vel, int minRadius, int maxRadius, float startHue, float endHue );
+void emitParticleColorIntervalQuantity( 
+    ParticleEmitter *pe, 
+    int minVelX, int maxVelX, 
+    int minVelY, int maxVelY, 
+    bool randomSignX, bool randomSignY,
+    int minRadius, int maxRadius, 
+    float startHue, float endHue, 
+    int quantity );
+void emitParticlePositionColorIntervalQuantity( 
+    ParticleEmitter *pe, 
+    Vector2 pos,
+    int minVelX, int maxVelX, 
+    int minVelY, int maxVelY, 
+    bool randomSignX, bool randomSignY,
+    int minRadius, int maxRadius, 
+    float startHue, float endHue, 
+    int quantity );

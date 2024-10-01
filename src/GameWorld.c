@@ -142,16 +142,6 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
             0.0f, 60.0f,
             5
         );
-        /*emitParticlePositionColorIntervalQuantity( 
-            &gw->peMouseDown, 
-            GetScreenToWorld2D( GetMousePosition(), gw->camera ), 
-            0, 150,
-            50, 50,
-            true, false,
-            2, 6,
-            0.0f, 60.0f,
-            5
-        );*/
     }
 
     emitParticlePolarColorIntervalQuantity( 

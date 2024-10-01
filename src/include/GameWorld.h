@@ -16,7 +16,9 @@ extern const float GRAVITY;
 typedef struct GameWorld {
 
     ParticleEmitter peMoveSin;
+    ParticleEmitter peMouseDown;
     ParticleEmitter peStaticRight;
+    ParticleEmitter peStaticTop;
 
     int emittersQuantity;
     ParticleEmitter **emitters;
@@ -25,6 +27,8 @@ typedef struct GameWorld {
     int obstacleQuantity;
     int maxObstacles;
     Obstacle *obstacles;
+
+    Camera2D camera;
     
 } GameWorld;
 
@@ -52,3 +56,5 @@ void createObstacleGameWorld( GameWorld *gw, float delta, Vector2 pos );
 void resolveParticlesObstaclesCollision( GameWorld *gw );
 void saveObstacleData( GameWorld *gw, const char *fileName );
 void loadObstacleData( GameWorld *gw, const char *fileName );
+void resetObstacles( GameWorld *gw );
+void updateCamera( Camera2D *camera );

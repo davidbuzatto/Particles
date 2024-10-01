@@ -26,7 +26,8 @@ const char* OBSTACLES_FILE = "resources/obstacles/data.txt";
 
 float timeToNextObstacle = 0.1f;
 float nextObstacleCounter = 0.0f;
-bool showInfo = false;
+bool showInfo = true;
+float currentZoom = 1.0f;
 
 /**
  * @brief Creates a dinamically allocated GameWorld struct instance.
@@ -39,25 +40,52 @@ GameWorld* createGameWorld( void ) {
         (Vector2) { 40.0f, 40.0f },
         (Vector2) { 150.0f, 100.0f },
         200.0f,
+        200.0f,
+        1000
+    );
+
+    gw->peMouseDown = createParticleEmitter( 
+        (Vector2) { 0 },
+        (Vector2) { 0 },
+        0.0f,
+        200.0f,
         1000
     );
 
     gw->peStaticRight = createParticleEmitter( 
         (Vector2) { 40.0f, GetScreenHeight() / 2 },
         (Vector2) { 0.0f, 0.0f },
+        0.0f,
         200.0f,
         1000
     );
 
-    gw->emittersQuantity = 2;
+    gw->peStaticTop = createParticleEmitter( 
+        (Vector2) { GetScreenWidth() * 0.75f, GetScreenHeight() - 10 },
+        (Vector2) { 0.0f, 0.0f },
+        0.0f,
+        200.0f,
+        1000
+    );
+
+    gw->emittersQuantity = 4;
     gw->emitters = (ParticleEmitter**) malloc( gw->emittersQuantity * sizeof( ParticleEmitter** ) );
     gw->emitters[0] = &gw->peMoveSin;
-    gw->emitters[1] = &gw->peStaticRight;
+    gw->emitters[1] = &gw->peMouseDown;
+    gw->emitters[2] = &gw->peStaticRight;
+    gw->emitters[3] = &gw->peStaticTop;
 
     gw->newObstaclePos = 0;
     gw->obstacleQuantity = 0;
     gw->maxObstacles = 400;
     gw->obstacles = (Obstacle*) malloc( gw->maxObstacles * sizeof( Obstacle ) );
+
+    gw->camera = (Camera2D) {
+        .target = { GetScreenWidth() / 2, GetScreenHeight() / 2 },
+        .offset = { GetScreenWidth() / 2, GetScreenHeight() / 2 },
+        .rotation = 0.0f,
+        .zoom = 1.0f
+    };
 
     return gw;
 
@@ -78,21 +106,20 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
 
     float delta = GetFrameTime();
 
-    updateParticleEmitterMoveSin( &gw->peMoveSin, delta );
     emitParticleColorIntervalQuantity( 
         &gw->peMoveSin, 
         0, 150,
         50, 50,
         true, false,
         2, 6,
-        180.0f, 285.0f,
+        180.0f, 240.0f,
         5
     );
 
     if ( IsMouseButtonDown( MOUSE_BUTTON_LEFT ) ) {
         emitParticlePositionColorIntervalQuantity( 
-            &gw->peMoveSin, 
-            GetMousePosition(), 
+            &gw->peMouseDown, 
+            GetScreenToWorld2D( GetMousePosition(), gw->camera ), 
             0, 150,
             50, 50,
             true, false,
@@ -102,7 +129,6 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
         );
     }
 
-    updateParticleEmitterStaticRight( &gw->peStaticRight, delta );
     emitParticleColorIntervalQuantity( 
         &gw->peStaticRight, 
         300, 500, 
@@ -113,8 +139,23 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
         5
     );
 
+    emitParticleColorIntervalQuantity( 
+        &gw->peStaticTop, 
+        0, 40, 
+        -400, -600,
+        true, false,
+        1, 3,
+        270.0f, 330.0f, 
+        5
+    );
+
+    updateParticleEmitterMoveSin( &gw->peMoveSin, delta );
+    updateParticleEmitterMouseDown( &gw->peMouseDown, delta );
+    updateParticleEmitterStatic( &gw->peStaticRight, delta );
+    updateParticleEmitterStatic( &gw->peStaticTop, delta );
+
     if ( IsMouseButtonDown( MOUSE_BUTTON_RIGHT ) ) {
-        createObstacleGameWorld( gw, delta, GetMousePosition() );
+        createObstacleGameWorld( gw, delta, GetScreenToWorld2D( GetMousePosition(), gw->camera ) );
     }
 
     if ( IsKeyPressed( KEY_F1 ) ) {
@@ -129,7 +170,22 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
         loadObstacleData( gw, OBSTACLES_FILE );
     }
 
+    if ( IsKeyPressed( KEY_F7 ) ) {
+        resetObstacles( gw );
+    }
+
     resolveParticlesObstaclesCollision( gw );
+
+    if ( IsKeyPressed( KEY_UP ) ) {
+        currentZoom += 0.1f;
+    } else if ( IsKeyPressed( KEY_DOWN ) ) {
+        currentZoom -= 0.1f;
+        if ( currentZoom <= 0.0f ) {
+            currentZoom = 0.1f;
+        }
+    }
+
+    updateCamera( &gw->camera );
 
 }
 
@@ -141,8 +197,12 @@ void drawGameWorld( GameWorld *gw ) {
     BeginDrawing();
     ClearBackground( BLACK );
 
+    BeginMode2D( gw->camera );
+
     drawParticleEmitter( &gw->peMoveSin );
+    drawParticleEmitter( &gw->peMouseDown );
     drawParticleEmitter( &gw->peStaticRight );
+    drawParticleEmitter( &gw->peStaticTop );
 
     for ( int i = 0; i < gw->obstacleQuantity; i++ ) {
         drawObstacle( &gw->obstacles[i] );
@@ -150,10 +210,18 @@ void drawGameWorld( GameWorld *gw ) {
     
     if ( showInfo ) {
         DrawFPS( 20, 20 );
-        DrawText( TextFormat( "particles: %d", gw->peMoveSin.particleQuantity ), 20, 40, 20, WHITE );
-        DrawText( TextFormat( "obstacles: %d", gw->obstacleQuantity ), 20, 60, 20, WHITE );
+        int y = 20;
+        DrawText( TextFormat( "particles (moving): %d", gw->peMoveSin.particleQuantity ), 20, y += 20, 20, WHITE );
+        DrawText( TextFormat( "particles (mouse): %d", gw->peMouseDown.particleQuantity ), 20, y += 20, 20, WHITE );
+        DrawText( TextFormat( "particles (static left): %d", gw->peStaticRight.particleQuantity ), 20, y += 20, 20, WHITE );
+        DrawText( TextFormat( "particles (static right): %d", gw->peStaticTop.particleQuantity ), 20, y += 20, 20, WHITE );
+        DrawText( TextFormat( "obstacles: %d", gw->obstacleQuantity ), 20, (y += 20), 20, WHITE );
+        DrawText( "<F5>: save obstacles", 20, (y += 20), 20, WHITE );
+        DrawText( "<F6>: load obstacles", 20, (y += 20), 20, WHITE );
+        DrawText( "<F7>: reset obstacles", 20, (y += 20), 20, WHITE );
     }
 
+    EndMode2D();
     EndDrawing();
 
 }
@@ -202,7 +270,7 @@ void resolveParticlesObstaclesCollision( GameWorld *gw ) {
                 if ( CheckCollisionCircleRec( p->pos, p->radius, o->topCP ) ) {
                     p->vel.y = -200.f;
                 } else if ( CheckCollisionCircleRec( p->pos, p->radius, o->bottomCP ) ) {
-                    //
+                    p->pos.y = o->rect.y + o->rect.height + p->radius;
                 } else if ( CheckCollisionCircleRec( p->pos, p->radius, o->leftCP ) ) {
                     p->pos.x = o->rect.x - p->radius;
                     p->vel.x = -fabs( p->vel.x );
@@ -220,85 +288,77 @@ void resolveParticlesObstaclesCollision( GameWorld *gw ) {
 
 void saveObstacleData( GameWorld *gw, const char *fileName ) {
     
+    FILE *file = fopen( fileName, "w" );
 
+    if ( file != NULL ) {
+
+        fprintf( file, "%d\n", gw->maxObstacles );
+        fprintf( file, "%d\n", gw->obstacleQuantity );
+
+        for ( int i = 0; i < gw->obstacleQuantity; i++ ) {
+            Obstacle *o = &gw->obstacles[i];
+            fprintf( file, "%.2f %.2f %.2f %.2f\n", o->rect.x, o->rect.y, o->rect.width, o->rect.height );
+        }
+
+        fclose( file );
+
+    }
 
 }
 
 void loadObstacleData( GameWorld *gw, const char *fileName ) {
     
-    char* data = LoadFileText( fileName );
+    FILE *file = fopen( fileName, "r" );
+    
+    if ( file != NULL ) {
 
-    // obstacles count
-    int count = 0;
-    char *c = data;
-    while ( *c != '\0' ) {
-        if ( *c == '\n' ) {
-            count++;
+        free( gw->obstacles );
+
+        fscanf( file, "%d", &gw->maxObstacles );
+        fscanf( file, "%d", &gw->obstacleQuantity );
+        gw->newObstaclePos = 0;
+        gw->obstacles = (Obstacle*) malloc( gw->maxObstacles * sizeof( Obstacle ) );
+
+        int k = 0;
+
+        while ( !feof( file ) ) {
+
+            float x;
+            float y;
+            float width;
+            float height;
+
+            int read = fscanf( file, "%f %f %f %f", &x, &y, &width, &height );
+            gw->obstacles[k++] = createObstacle( (Vector2){ x, y }, (Vector2){ width, height }, RAYWHITE );
+
+            if ( read != 4 ) {
+                break;
+            }
+
         }
-        c++;
+
+        fclose( file );
+
     }
 
-    free( gw->obstacles );
+}
+
+void resetObstacles( GameWorld *gw ) {
     gw->newObstaclePos = 0;
-    gw->obstacleQuantity = count;
-    gw->obstacles = (Obstacle*) malloc( gw->obstacleQuantity * sizeof( Obstacle ) );
+    gw->obstacleQuantity = 0;
+}
 
-    char buffer[100];
-    int k = 0;
-    c = data;
+void updateCamera( Camera2D *camera ) {
 
-    char *b;
-    int x;
-    int y;
-    int dimX;
-    int dimY;
+    float hWidth = GetScreenWidth() / 2;
+    float hHeight = GetScreenHeight() / 2;
 
-    while ( *c != '\0' ) {
-        if ( *c == '\n' ) {
-            buffer[k] = '\0';
-            
-            b = buffer;
-            char b2[10];
-            int k2 = 0;
-            int cc = 0;
-            while ( *b != '\0' ) {
-                if ( *b == ',' ) {
-                    b2[k2] = '\0';
-                    int v = atoi( b2 );
-                    switch ( cc ) {
-                        case 0: x = v; break;
-                        case 1: y = v; break;
-                        case 2: dimX = v; break;
-                        case 3: dimY = v; break;
-                    }
-                    cc++;
-                    k2 = 0;
-                } else {
-                    b2[k2++] = *b;
-                }
-                b++;
-            }
-            
-            int o = gw->newObstaclePos % gw->maxObstacles;
+    camera->zoom = currentZoom;
 
-            gw->obstacles[o] = createObstacle( 
-                (Vector2) { x, y}, 
-                (Vector2) { dimX, dimY },
-                RAYWHITE
-            );
+    camera->target.x = hWidth;
+    camera->target.y = hHeight;
 
-            gw->newObstaclePos++;
-            
-            if ( gw->obstacleQuantity < gw->maxObstacles ) {
-                gw->obstacleQuantity++;
-            }
-
-            buffer[0] = '\0';
-            k = 0;
-        } else {
-            buffer[k++] = *c;
-        }
-        c++;
-    }
+    camera->offset.x = hWidth + ( hWidth * ( camera->zoom - 1.0f ) ); 
+    camera->offset.y = hHeight + ( hHeight * ( camera->zoom - 1.0f ) );
 
 }

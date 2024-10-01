@@ -9,6 +9,8 @@ typedef struct ParticleEmitter {
     Vector2 vel;
     float angle;
     float angleVel;
+    float hueAngle;
+    float hueAngleVel;
 
     int newParticlePos;
     int particleQuantity;
@@ -17,28 +19,30 @@ typedef struct ParticleEmitter {
 
 } ParticleEmitter;
 
-ParticleEmitter createParticleEmitter( Vector2 pos, Vector2 vel, float angleVel, int maxParticles );
+ParticleEmitter createParticleEmitter( Vector2 pos, Vector2 vel, float angleVel, float hueAngleVel, int maxParticles );
 void destroyParticleEmitter( ParticleEmitter *pe );
 void updateParticleEmitterMoveSin( ParticleEmitter *pe, float delta );
-void updateParticleEmitterStaticRight( ParticleEmitter *pe, float delta );
+void updateParticleEmitterMouseDown( ParticleEmitter *pe, float delta );
+void updateParticleEmitterStatic( ParticleEmitter *pe, float delta );
+void updateHueAngleBouncing( ParticleEmitter *pe, float delta );
 void drawParticleEmitter( ParticleEmitter *pe );
 void emitParticle( ParticleEmitter *pe, Vector2 pos, Vector2 vel, float radius, Color color );
-void emitParticleColorInterval( ParticleEmitter *pe, Vector2 vel, int minRadius, int maxRadius, float startHue, float endHue );
-void emitParticlePositionColorInterval( ParticleEmitter *pe, Vector2 pos, Vector2 vel, int minRadius, int maxRadius, float startHue, float endHue );
+void emitParticleColorInterval( ParticleEmitter *pe, Vector2 vel, float minRadius, float maxRadius, float startHue, float endHue );
+void emitParticlePositionColorInterval( ParticleEmitter *pe, Vector2 pos, Vector2 vel, float minRadius, float maxRadius, float startHue, float endHue );
 void emitParticleColorIntervalQuantity( 
     ParticleEmitter *pe, 
-    int minVelX, int maxVelX, 
-    int minVelY, int maxVelY, 
+    float minVelX, float maxVelX, 
+    float minVelY, float maxVelY, 
     bool randomSignX, bool randomSignY,
-    int minRadius, int maxRadius, 
+    float minRadius, float maxRadius, 
     float startHue, float endHue, 
     int quantity );
 void emitParticlePositionColorIntervalQuantity( 
     ParticleEmitter *pe, 
     Vector2 pos,
-    int minVelX, int maxVelX, 
-    int minVelY, int maxVelY, 
+    float minVelX, float maxVelX, 
+    float minVelY, float maxVelY, 
     bool randomSignX, bool randomSignY,
-    int minRadius, int maxRadius, 
+    float minRadius, float maxRadius, 
     float startHue, float endHue, 
     int quantity );

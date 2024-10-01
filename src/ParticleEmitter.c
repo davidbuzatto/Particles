@@ -8,13 +8,17 @@
 #include "raylib/raylib.h"
 #include "raylib/raymath.h"
 
-ParticleEmitter createParticleEmitter( Vector2 pos, Vector2 vel, float angleVel, int maxParticles ) {
+#define PE_RANDOM_MULTIPLIER 1000.0f
+
+ParticleEmitter createParticleEmitter( Vector2 pos, Vector2 vel, float angleVel, float hueAngleVel, int maxParticles ) {
 
     return (ParticleEmitter) {
         .pos = pos,
         .vel = vel,
         .angle = 0.0f,
         .angleVel = angleVel,
+        .hueAngle = 0.0f,
+        .hueAngleVel = hueAngleVel,
         .newParticlePos = 0,
         .particleQuantity = 0,
         .maxParticles = maxParticles,
@@ -45,6 +49,8 @@ void updateParticleEmitterMoveSin( ParticleEmitter *pe, float delta ) {
         pe->angle = 0.0f;
     }
 
+    updateHueAngleBouncing( pe, delta );
+
     if ( pe->pos.x < 40.0f ) {
         pe->vel.x *= -1.0f;
     } else if ( pe->pos.x >= GetScreenWidth() - 40.0f ) {
@@ -57,17 +63,38 @@ void updateParticleEmitterMoveSin( ParticleEmitter *pe, float delta ) {
 
 }
 
-void updateParticleEmitterStaticRight( ParticleEmitter *pe, float delta ) {
+void updateParticleEmitterMouseDown( ParticleEmitter *pe, float delta ) {
 
-    pe->angle += pe->angleVel * delta;
-    if ( pe->angle > 360.0f ) {
-        pe->angle = 0.0f;
-    }
+    updateHueAngleBouncing( pe, delta );
 
     for ( int i = 0; i < pe->particleQuantity; i++ ) {
         updateParticle( &pe->particles[i], delta );
     }
 
+}
+
+void updateParticleEmitterStatic( ParticleEmitter *pe, float delta ) {
+
+    updateHueAngleBouncing( pe, delta );
+
+    for ( int i = 0; i < pe->particleQuantity; i++ ) {
+        updateParticle( &pe->particles[i], delta );
+    }
+
+}
+
+void updateHueAngleBouncing( ParticleEmitter *pe, float delta ) {
+
+    pe->hueAngle += pe->hueAngleVel * delta;
+    if ( pe->hueAngle < 0.0f ) {
+        pe->hueAngle = 0.0f;
+        pe->hueAngleVel *= -1.0f;
+    }
+    if ( pe->hueAngle > 360.0f ) {
+        pe->hueAngle = 360.0f;
+        pe->hueAngleVel *= -1.0f;
+    }
+    
 }
 
 void emitParticle( ParticleEmitter *pe, Vector2 pos, Vector2 vel, float radius, Color color ) {
@@ -89,18 +116,18 @@ void emitParticle( ParticleEmitter *pe, Vector2 pos, Vector2 vel, float radius, 
 
 }
 
-void emitParticleColorInterval( ParticleEmitter *pe, Vector2 vel, int minRadius, int maxRadius, float startHue, float endHue ) {
+void emitParticleColorInterval( ParticleEmitter *pe, Vector2 vel, float minRadius, float maxRadius, float startHue, float endHue ) {
     emitParticlePositionColorInterval( pe, pe->pos, vel, minRadius, maxRadius, startHue, endHue );
 }
 
-void emitParticlePositionColorInterval( ParticleEmitter *pe, Vector2 pos, Vector2 vel, int minRadius, int maxRadius, float startHue, float endHue ) {
+void emitParticlePositionColorInterval( ParticleEmitter *pe, Vector2 pos, Vector2 vel, float minRadius, float maxRadius, float startHue, float endHue ) {
     emitParticle( 
         pe, 
         pos, 
         vel, 
-        (float) GetRandomValue( minRadius, maxRadius ),
+        GetRandomValue( (int) (minRadius * PE_RANDOM_MULTIPLIER), (int) (maxRadius * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER,
         ColorFromHSV( 
-            Lerp( startHue, endHue, pe->angle / 360.0f ), 
+            Lerp( startHue, endHue, pe->hueAngle / 360.0f ), 
             1.0f, 
             1.0f
         )
@@ -109,17 +136,21 @@ void emitParticlePositionColorInterval( ParticleEmitter *pe, Vector2 pos, Vector
 
 void emitParticleColorIntervalQuantity( 
     ParticleEmitter *pe, 
-    int minVelX, int maxVelX, 
-    int minVelY, int maxVelY, 
+    float minVelX, float maxVelX, 
+    float minVelY, float maxVelY, 
     bool randomSignX, bool randomSignY,
-    int minRadius, int maxRadius, 
+    float minRadius, float maxRadius, 
     float startHue, float endHue, 
     int quantity ) {
     
     for ( int i = 0; i < quantity; i++ ) {
         emitParticleColorInterval( 
             pe, 
-            createVel( (float) GetRandomValue( minVelX, maxVelX ), (float) GetRandomValue( minVelX, maxVelX ), randomSignX, randomSignY ),
+            createVel( 
+                GetRandomValue( (int) (minVelX * PE_RANDOM_MULTIPLIER), (int) (maxVelX * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER, 
+                GetRandomValue( (int) (minVelY * PE_RANDOM_MULTIPLIER), (int) (maxVelY * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER, 
+                randomSignX, randomSignY
+            ),
             minRadius, maxRadius,
             startHue, endHue
         );
@@ -130,10 +161,10 @@ void emitParticleColorIntervalQuantity(
 void emitParticlePositionColorIntervalQuantity( 
     ParticleEmitter *pe, 
     Vector2 pos,
-    int minVelX, int maxVelX, 
-    int minVelY, int maxVelY, 
+    float minVelX, float maxVelX, 
+    float minVelY, float maxVelY, 
     bool randomSignX, bool randomSignY,
-    int minRadius, int maxRadius, 
+    float minRadius, float maxRadius, 
     float startHue, float endHue, 
     int quantity ) {
     
@@ -141,7 +172,11 @@ void emitParticlePositionColorIntervalQuantity(
         emitParticlePositionColorInterval( 
             pe, 
             pos,
-            createVel( (float) GetRandomValue( minVelX, maxVelX ), (float) GetRandomValue( minVelX, maxVelX ), randomSignX, randomSignY ),
+            createVel( 
+                GetRandomValue( (int) (minVelX * PE_RANDOM_MULTIPLIER), (int) (maxVelX * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER, 
+                GetRandomValue( (int) (minVelY * PE_RANDOM_MULTIPLIER), (int) (maxVelY * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER, 
+                randomSignX, randomSignY
+            ),
             minRadius, maxRadius,
             startHue, endHue
         );

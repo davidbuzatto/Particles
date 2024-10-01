@@ -7,6 +7,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 #include <string.h>
 
@@ -39,8 +40,11 @@ GameWorld* createGameWorld( void ) {
     gw->peMoveSin = createParticleEmitter( 
         (Vector2) { 40.0f, 40.0f },
         (Vector2) { 150.0f, 100.0f },
+        0.0f,
         200.0f,
         200.0f,
+        0.0f,
+        false,
         1000
     );
 
@@ -48,23 +52,32 @@ GameWorld* createGameWorld( void ) {
         (Vector2) { 0 },
         (Vector2) { 0 },
         0.0f,
+        0.0f,
         200.0f,
+        0.0f,
+        false,
         1000
     );
 
     gw->peStaticRight = createParticleEmitter( 
         (Vector2) { 40.0f, GetScreenHeight() / 2 },
         (Vector2) { 0.0f, 0.0f },
+        90.0f,
         0.0f,
         200.0f,
+        10.0f,
+        true,
         1000
     );
 
     gw->peStaticTop = createParticleEmitter( 
-        (Vector2) { GetScreenWidth() * 0.75f, GetScreenHeight() - 10 },
+        (Vector2) { GetScreenWidth() * 0.75f, GetScreenHeight() - 40 },
         (Vector2) { 0.0f, 0.0f },
+        180.0f,
         0.0f,
         200.0f,
+        10.0f,
+        true,
         1000
     );
 
@@ -106,6 +119,9 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
 
     float delta = GetFrameTime();
 
+    bool d1 = resolveParticleEmitterMouseOperations( &gw->peStaticRight, gw->camera );
+    bool d2 = resolveParticleEmitterMouseOperations( &gw->peStaticTop, gw->camera );
+
     emitParticleColorIntervalQuantity( 
         &gw->peMoveSin, 
         0, 150,
@@ -116,8 +132,17 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
         5
     );
 
-    if ( IsMouseButtonDown( MOUSE_BUTTON_LEFT ) ) {
-        emitParticlePositionColorIntervalQuantity( 
+    if ( !d1 && !d2 && IsMouseButtonDown( MOUSE_BUTTON_LEFT ) ) {
+        emitParticlePolarPositionColorIntervalQuantity( 
+            &gw->peMouseDown, 
+            GetScreenToWorld2D( GetMousePosition(), gw->camera ), 
+            100, 200,
+            0, 200, true,
+            2, 6,
+            0.0f, 60.0f,
+            5
+        );
+        /*emitParticlePositionColorIntervalQuantity( 
             &gw->peMouseDown, 
             GetScreenToWorld2D( GetMousePosition(), gw->camera ), 
             0, 150,
@@ -126,31 +151,29 @@ void inputAndUpdateGameWorld( GameWorld *gw ) {
             2, 6,
             0.0f, 60.0f,
             5
-        );
+        );*/
     }
 
-    emitParticleColorIntervalQuantity( 
+    emitParticlePolarColorIntervalQuantity( 
         &gw->peStaticRight, 
-        300, 500, 
-        0, 0,
-        false, false,
+        300, 500,
+        0, 20, true,
         2, 6,
         75.0f, 165.0f, 
         5
     );
 
-    emitParticleColorIntervalQuantity( 
+    emitParticlePolarColorIntervalQuantity( 
         &gw->peStaticTop, 
-        0, 40, 
-        -400, -600,
-        true, false,
+        400, 800,
+        0, 8, true,
         1, 3,
         270.0f, 330.0f, 
         5
     );
 
     updateParticleEmitterMoveSin( &gw->peMoveSin, delta );
-    updateParticleEmitterMouseDown( &gw->peMouseDown, delta );
+    updateParticleEmitterStatic( &gw->peMouseDown, delta );
     updateParticleEmitterStatic( &gw->peStaticRight, delta );
     updateParticleEmitterStatic( &gw->peStaticTop, delta );
 
@@ -236,6 +259,9 @@ void createObstacleGameWorld( GameWorld *gw, float delta, Vector2 pos ) {
 
         int k = gw->newObstaclePos % gw->maxObstacles;
 
+        pos.x -= 10.0f;
+        pos.y -= 10.0f;
+
         gw->obstacles[k] = createObstacle( 
             pos, 
             (Vector2) {
@@ -269,14 +295,18 @@ void resolveParticlesObstaclesCollision( GameWorld *gw ) {
                 Obstacle *o = &gw->obstacles[j];
                 if ( CheckCollisionCircleRec( p->pos, p->radius, o->topCP ) ) {
                     p->vel.y = -200.f;
+                    p->vel.y *= p->elasticity;
                 } else if ( CheckCollisionCircleRec( p->pos, p->radius, o->bottomCP ) ) {
                     p->pos.y = o->rect.y + o->rect.height + p->radius;
+                    p->vel.y *= p->elasticity;
                 } else if ( CheckCollisionCircleRec( p->pos, p->radius, o->leftCP ) ) {
                     p->pos.x = o->rect.x - p->radius;
                     p->vel.x = -fabs( p->vel.x );
+                    p->vel.x *= p->elasticity;
                 } else if ( CheckCollisionCircleRec( p->pos, p->radius, o->rightCP ) ) {
                     p->pos.x = o->rect.x + o->rect.width + p->radius;
                     p->vel.x = fabs( p->vel.x );
+                    p->vel.x *= p->elasticity;
                 }
             }
 
@@ -360,5 +390,44 @@ void updateCamera( Camera2D *camera ) {
 
     camera->offset.x = hWidth + ( hWidth * ( camera->zoom - 1.0f ) ); 
     camera->offset.y = hHeight + ( hHeight * ( camera->zoom - 1.0f ) );
+
+}
+
+bool resolveParticleEmitterMouseOperations( ParticleEmitter *pe, Camera2D camera ) {
+
+    Vector2 mousePos = GetMousePosition();
+    Vector2 pePos = GetWorldToScreen2D( pe->pos, camera );
+
+    static float xOffset;
+    static float yOffset;
+
+    if ( pe->draggable && isMouseOverParticleEmitter( pePos, pe->radius * camera.zoom, mousePos ) ) {
+        pe->mouseOver = true;
+        if ( IsMouseButtonPressed( MOUSE_BUTTON_LEFT ) ) {
+            pe->dragging = true;
+            xOffset = pePos.x - mousePos.x;
+            yOffset = pePos.y - mousePos.y;
+        }
+    } else {
+        pe->mouseOver = false;
+    }
+
+    if ( IsMouseButtonReleased( MOUSE_BUTTON_LEFT ) ) {
+        pe->dragging = false;
+    }
+
+    if ( pe->dragging ) {
+        pe->mouseOver = true;
+        mousePos.x += xOffset;
+        mousePos.y += yOffset;
+        pe->pos = GetScreenToWorld2D( mousePos, camera );
+    }
+
+    if ( pe->mouseOver ) {
+        float m = GetMouseWheelMove() * 2;
+        pe->launchAngle += m;
+    }
+
+    return pe->dragging;
 
 }

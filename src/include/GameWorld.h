@@ -11,6 +11,8 @@
 #include "ParticleEmitter.h"
 #include "Obstacle.h"
 
+#include "raylib/raylib.h"
+
 extern const float GRAVITY;
 
 typedef struct GameWorld {
@@ -58,3 +60,4 @@ void saveObstacleData( GameWorld *gw, const char *fileName );
 void loadObstacleData( GameWorld *gw, const char *fileName );
 void resetObstacles( GameWorld *gw );
 void updateCamera( Camera2D *camera );
+bool resolveParticleEmitterMouseOperations( ParticleEmitter *pe, Camera2D camera );

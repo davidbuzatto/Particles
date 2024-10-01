@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 
 #include "Particle.h"
@@ -10,15 +11,18 @@
 
 #define PE_RANDOM_MULTIPLIER 1000.0f
 
-ParticleEmitter createParticleEmitter( Vector2 pos, Vector2 vel, float angleVel, float hueAngleVel, int maxParticles ) {
+ParticleEmitter createParticleEmitter( Vector2 pos, Vector2 vel, float launchAngle, float posAngleVel, float hueAngleVel, float radius, bool draggable, int maxParticles ) {
 
     return (ParticleEmitter) {
         .pos = pos,
         .vel = vel,
-        .angle = 0.0f,
-        .angleVel = angleVel,
+        .launchAngle = launchAngle,
+        .posAngle = 0.0f,
+        .posAngleVel = posAngleVel,
         .hueAngle = 0.0f,
         .hueAngleVel = hueAngleVel,
+        .radius = radius,
+        .draggable = draggable,
         .newParticlePos = 0,
         .particleQuantity = 0,
         .maxParticles = maxParticles,
@@ -33,6 +37,11 @@ void destroyParticleEmitter( ParticleEmitter *pe ) {
 
 void drawParticleEmitter( ParticleEmitter *pe ) {
 
+    if ( pe->draggable && pe->mouseOver ) {
+        DrawCircleV( pe->pos, pe->radius, Fade( RAYWHITE, 0.5f ) );    
+        DrawCircleLinesV( pe->pos, pe->radius, RAYWHITE );
+    }
+
     for ( int i = 0; i < pe->particleQuantity; i++ ) {
         drawParticle( &pe->particles[i] );
     }
@@ -42,11 +51,11 @@ void drawParticleEmitter( ParticleEmitter *pe ) {
 void updateParticleEmitterMoveSin( ParticleEmitter *pe, float delta ) {
 
     pe->pos.x += pe->vel.x * delta;
-    pe->pos.y += pe->vel.y * sin( DEG2RAD * pe->angle ) * delta;
+    pe->pos.y += pe->vel.y * sin( DEG2RAD * pe->posAngle ) * delta;
 
-    pe->angle += pe->angleVel * delta;
-    if ( pe->angle > 360.0f ) {
-        pe->angle = 0.0f;
+    pe->posAngle += pe->posAngleVel * delta;
+    if ( pe->posAngle > 360.0f ) {
+        pe->posAngle = 0.0f;
     }
 
     updateHueAngleBouncing( pe, delta );
@@ -56,16 +65,6 @@ void updateParticleEmitterMoveSin( ParticleEmitter *pe, float delta ) {
     } else if ( pe->pos.x >= GetScreenWidth() - 40.0f ) {
         pe->vel.x *= -1.0f;
     }
-
-    for ( int i = 0; i < pe->particleQuantity; i++ ) {
-        updateParticle( &pe->particles[i], delta );
-    }
-
-}
-
-void updateParticleEmitterMouseDown( ParticleEmitter *pe, float delta ) {
-
-    updateHueAngleBouncing( pe, delta );
 
     for ( int i = 0; i < pe->particleQuantity; i++ ) {
         updateParticle( &pe->particles[i], delta );
@@ -134,6 +133,15 @@ void emitParticlePositionColorInterval( ParticleEmitter *pe, Vector2 pos, Vector
     );
 }
 
+bool isMouseOverParticleEmitter( Vector2 pePos, float peRadius, Vector2 mousePos ) {
+
+    float c1 = mousePos.x - pePos.x;
+    float c2 = mousePos.y - pePos.y;
+
+    return c1 * c1 + c2 * c2 <= peRadius * peRadius;
+
+}
+
 void emitParticleColorIntervalQuantity( 
     ParticleEmitter *pe, 
     float minVelX, float maxVelX, 
@@ -184,4 +192,72 @@ void emitParticlePositionColorIntervalQuantity(
 
 }
 
+void emitParticlePolarColorIntervalQuantity( 
+    ParticleEmitter *pe, 
+    float minVel, float maxVel, 
+    float minLaunchAngle, float maxLaunchAngle,
+    bool randomSignLaunchAnble,
+    float minRadius, float maxRadius, 
+    float startHue, float endHue, 
+    int quantity ) {
 
+    for ( int i = 0; i < quantity; i++ ) {
+
+        float rVel = GetRandomValue( (int) (minVel * PE_RANDOM_MULTIPLIER), (int) (maxVel * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER;
+        float launAngleOffset = GetRandomValue( (int) (minLaunchAngle * PE_RANDOM_MULTIPLIER), (int) (maxLaunchAngle * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER;
+
+        if ( randomSignLaunchAnble ) {
+            if ( GetRandomValue( 0, 1 ) == 0 ) {
+                launAngleOffset *= -1.0f;
+            }
+        }
+
+        emitParticleColorInterval( 
+            pe, 
+            createVel( 
+                rVel * sin( DEG2RAD * ( pe->launchAngle + launAngleOffset ) ), 
+                rVel * cos( DEG2RAD * ( pe->launchAngle + launAngleOffset ) ), 
+                false, false
+            ),
+            minRadius, maxRadius,
+            startHue, endHue
+        );
+    }
+    
+}
+
+void emitParticlePolarPositionColorIntervalQuantity( 
+    ParticleEmitter *pe, 
+    Vector2 pos,
+    float minVel, float maxVel, 
+    float minLaunchAngle, float maxLaunchAngle,
+    bool randomSignLaunchAnble,
+    float minRadius, float maxRadius, 
+    float startHue, float endHue, 
+    int quantity ) {
+
+    for ( int i = 0; i < quantity; i++ ) {
+
+        float rVel = GetRandomValue( (int) (minVel * PE_RANDOM_MULTIPLIER), (int) (maxVel * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER;
+        float launAngleOffset = GetRandomValue( (int) (minLaunchAngle * PE_RANDOM_MULTIPLIER), (int) (maxLaunchAngle * PE_RANDOM_MULTIPLIER) ) / PE_RANDOM_MULTIPLIER;
+
+        if ( randomSignLaunchAnble ) {
+            if ( GetRandomValue( 0, 1 ) == 0 ) {
+                launAngleOffset *= -1.0f;
+            }
+        }
+
+        emitParticlePositionColorInterval( 
+            pe, 
+            pos,
+            createVel( 
+                rVel * sin( DEG2RAD * ( pe->launchAngle + launAngleOffset ) ), 
+                rVel * cos( DEG2RAD * ( pe->launchAngle + launAngleOffset ) ), 
+                false, false
+            ),
+            minRadius, maxRadius,
+            startHue, endHue
+        );
+    }
+
+}

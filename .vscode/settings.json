@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "obstacle.h": "c"
+        "obstacle.h": "c",
+        "random": "c"
     }
 }

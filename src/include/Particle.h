@@ -6,6 +6,8 @@ typedef struct Particle {
     Vector2 pos;
     Vector2 vel;
     float radius;
+    float friction;
+    float elasticity;
     Color color;
 } Particle;
 
